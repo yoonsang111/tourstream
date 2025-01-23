@@ -1,6 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
+const multer = require("multer"); // 이미지 업로드를 위한 Multer 추가
+const path = require("path");
 const productRoutes = require("./routes/product");
 
 const app = express();
@@ -37,6 +39,29 @@ mongoose.connection.on("error", (err) => {
 
 mongoose.connection.on("disconnected", () => {
   console.log("❗️ Mongoose 연결이 종료되었습니다.");
+});
+
+// Multer 설정
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/"); // 업로드 파일 저장 디렉토리
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname)); // 고유 파일 이름 생성
+  },
+});
+const upload = multer({ storage }); // Multer 미들웨어 초기화
+
+// 정적 파일 제공 (업로드된 파일을 클라이언트에서 접근 가능하게 함)
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// 이미지 업로드 라우트
+app.post("/api/upload", upload.single("image"), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: "이미지 업로드 실패" });
+  }
+  res.status(200).json({ imageUrl: `/uploads/${req.file.filename}` }); // 업로드된 이미지 경로 반환
 });
 
 // 기본 라우트 설정

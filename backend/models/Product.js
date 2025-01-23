@@ -2,14 +2,39 @@ const mongoose = require("mongoose");
 
 // 상품 스키마 정의
 const productSchema = new mongoose.Schema({
-  name: { type: String, required: true }, // 상품 이름
-  description: { type: String, required: true }, // 상품 설명
-  price: { type: Number, required: true }, // 상품 가격
-  image: { type: String }, // 이미지 URL (파일 업로드 처리 후 저장)
-  urls: [{ type: String }], // 여러 URL 저장
-  isDeleted: { type: Boolean, default: false }, // 삭제 여부
-  createdAt: { type: Date, default: Date.now }, // 생성 일자
+  name: {
+    type: String,
+    required: true, // 상품 이름은 필수 입력 값
+  },
+  description: {
+    type: String,
+    required: true, // 상품 설명은 필수 입력 값
+  },
+  price: {
+    type: Number,
+    default: null, // 가격이 없을 경우 기본값 null
+  },
+  urls: {
+    type: [String],
+    default: [], // 상품 관련 URL 배열
+  },
+  image: {
+    type: String,
+    default: null, // 상품 이미지 경로 (이미지가 없을 경우 null)
+  },
+  isVisible: {
+    type: Boolean,
+    default: true, // 판매 상태 필드 추가 (기본값: true)
+  },
+  isDeleted: {
+    type: Boolean,
+    default: false, // 상품 삭제 여부 (true: 삭제됨)
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now, // 상품 생성 시 시간 자동 기록
+  },
 });
 
-// 모델 생성
+// 스키마를 모델로 변환하여 내보내기
 module.exports = mongoose.model("Product", productSchema);

@@ -1,76 +1,89 @@
-const express = require("express");
-const router = express.Router();
-const Product = require("../models/Product"); // Product 모델 불러오기
+import React, { useEffect, useState } from "react";
+import {
+  getProducts,
+  deleteProduct,
+  toggleProductVisibility,
+} from "../api/productApi";
 
-// 상품 등록 (POST 요청)
-router.post("/", async (req, res) => {
-  try {
-    const product = new Product(req.body); // 클라이언트에서 보낸 데이터로 새로운 상품 생성
-    await product.save(); // MongoDB에 상품 저장
-    res.status(201).json(product); // 저장된 상품 데이터를 클라이언트로 반환
-  } catch (error) {
-    res.status(500).json({ message: "상품 등록 실패", error: error.message });
-  }
-});
+function ProductList() {
+  const [products, setProducts] = useState([]);
 
-// 상품 목록 가져오기 (삭제되지 않은 상품만)
-router.get("/", async (req, res) => {
-  try {
-    const products = await Product.find({ isDeleted: false }); // 삭제되지 않은 상품 가져오기
-    if (products.length === 0) {
-      return res.status(404).json({ message: "상품이 없습니다." }); // 상품이 없을 경우
+  // 상품 목록 가져오기
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const productList = await getProducts();
+        setProducts(productList);
+      } catch (error) {
+        alert("상품 목록 가져오기 실패: " + error.message);
+      }
+    };
+    fetchProducts();
+  }, []);
+
+  // 상품 삭제
+  const handleDelete = async (id) => {
+    if (window.confirm("정말로 이 상품을 삭제하시겠습니까?")) {
+      try {
+        await deleteProduct(id);
+        setProducts((prev) => prev.filter((product) => product._id !== id));
+      } catch (error) {
+        alert("상품 삭제 실패: " + error.message);
+      }
     }
-    res.status(200).json(products); // 가져온 데이터를 클라이언트로 반환
-  } catch (error) {
-    res
-      .status(500)
-      .json({ message: "상품 가져오기 실패", error: error.message });
-  }
-});
+  };
 
-// 상품 수정 (PUT 요청)
-router.put("/:id", async (req, res) => {
-  try {
-    const { id } = req.params; // URL에서 상품 ID 가져오기
-    const updatedData = req.body; // 클라이언트에서 보낸 수정 데이터
-
-    // MongoDB에서 해당 상품 데이터 수정 (유효성 검사 추가)
-    const product = await Product.findByIdAndUpdate(id, updatedData, {
-      new: true,
-      runValidators: true,
-    });
-
-    if (!product) {
-      return res.status(404).json({ message: "상품을 찾을 수 없습니다." });
+  // 판매 상태 변경
+  const handleToggleVisibility = async (id, isVisible) => {
+    const action = isVisible ? "판매중지" : "판매재개";
+    if (window.confirm(`정말로 이 상품을 ${action}하시겠습니까?`)) {
+      try {
+        const updatedProduct = await toggleProductVisibility(id, !isVisible);
+        setProducts((prev) =>
+          prev.map((product) => (product._id === id ? updatedProduct : product))
+        );
+      } catch (error) {
+        alert(`상품 ${action} 실패: ` + error.message);
+      }
     }
+  };
 
-    res.status(200).json(product); // 수정된 상품 데이터 반환
-  } catch (error) {
-    res.status(500).json({ message: "상품 수정 실패", error: error.message });
-  }
-});
+  return (
+    <div>
+      <h2>상품 목록</h2>
+      <table border="1" style={{ width: "100%", textAlign: "left" }}>
+        <thead>
+          <tr>
+            <th>상품명</th>
+            <th>설명</th>
+            <th>가격</th>
+            <th>상태</th>
+            <th>작업</th>
+          </tr>
+        </thead>
+        <tbody>
+          {products.map((product) => (
+            <tr key={product._id}>
+              <td>{product.name}</td>
+              <td>{product.description}</td>
+              <td>{product.price || "없음"}</td>
+              <td>{product.isVisible ? "판매중" : "판매중지"}</td>
+              <td>
+                <button onClick={() => handleDelete(product._id)}>삭제</button>
+                <button
+                  onClick={() =>
+                    handleToggleVisibility(product._id, product.isVisible)
+                  }
+                >
+                  {product.isVisible ? "판매중지" : "판매재개"}
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
-// 상품 삭제 (isDeleted 설정)
-router.delete("/:id", async (req, res) => {
-  try {
-    const { id } = req.params; // URL에서 상품 ID 가져오기
-
-    // MongoDB에서 해당 상품의 isDeleted를 true로 설정
-    const product = await Product.findByIdAndUpdate(
-      id,
-      { isDeleted: true },
-      { new: true, runValidators: true }
-    );
-
-    if (!product) {
-      return res.status(404).json({ message: "상품을 찾을 수 없습니다." });
-    }
-
-    res.status(200).json({ message: "상품이 삭제되었습니다.", product });
-  } catch (error) {
-    res.status(500).json({ message: "상품 삭제 실패", error: error.message });
-  }
-});
-
-// 라우터를 모듈로 내보내기
-module.exports = router;
+export default ProductList;
