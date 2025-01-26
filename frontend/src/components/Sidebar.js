@@ -1,41 +1,29 @@
-import React, { useState } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
 
-function Sidebar() {
-  const [isProductOpen, setIsProductOpen] = useState(false);
-
+const Sidebar = () => {
   return (
     <div
-      style={{
-        width: "250px",
-        background: "#f8f9fa",
-        height: "100vh",
-        padding: "20px",
-      }}
+      style={{ padding: "20px", backgroundColor: "#f7f7f7", height: "100vh" }}
     >
-      <h2>메뉴</h2>
-      <div>
-        {/* 상위 메뉴 */}
-        <div
-          onClick={() => setIsProductOpen(!isProductOpen)}
-          style={{ cursor: "pointer", marginBottom: "10px" }}
-        >
-          상품
-        </div>
-        {isProductOpen && (
-          <div style={{ paddingLeft: "20px" }}>
-            {/* 하위 메뉴 */}
-            <div style={{ marginBottom: "5px" }}>
-              <Link to="/product-form">상품등록</Link>
-            </div>
-            <div>
-              <Link to="/product-list">상품목록</Link>
-            </div>
-          </div>
-        )}
-      </div>
+      <h3 style={{ marginBottom: "20px" }}>메뉴</h3>
+      <ul style={{ listStyle: "none", padding: "0" }}>
+        <li style={{ marginBottom: "10px" }}>
+          <Link to="/products">상품 목록</Link>
+        </li>
+        <li style={{ marginBottom: "10px" }}>
+          <Link to="/product-form">상품 등록</Link>
+        </li>
+        <li style={{ marginBottom: "10px" }}>
+          <Link to="/categories">카테고리 관리</Link>{" "}
+          {/* 카테고리 관리 메뉴 추가 */}
+        </li>
+        <li>
+          <Link to="/regions">지역 관리</Link> {/* 지역 관리 메뉴 추가 */}
+        </li>
+      </ul>
     </div>
   );
-}
+};
 
 export default Sidebar;
