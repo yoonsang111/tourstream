@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from "react";
 import {
   getCategories,
-  createCategory,
-  updateCategory,
+  createParentCategory,
+  createSubCategory,
   deleteCategory,
 } from "../api/categoryApi";
 
 const CategoryManagement = () => {
   const [categories, setCategories] = useState([]);
-  const [newCategory, setNewCategory] = useState("");
-  const [newSubcategories, setNewSubcategories] = useState([]);
-  const [editingCategory, setEditingCategory] = useState(null);
+  const [newParentCategory, setNewParentCategory] = useState("");
+  const [selectedParentId, setSelectedParentId] = useState("");
+  const [newSubCategory, setNewSubCategory] = useState("");
 
   // 카테고리 목록 가져오기
   useEffect(() => {
@@ -25,34 +25,44 @@ const CategoryManagement = () => {
     fetchCategories();
   }, []);
 
-  // 카테고리 등록
-  const handleCreateCategory = async () => {
-    if (!newCategory) return alert("카테고리 이름을 입력하세요.");
+  // 상위 카테고리 등록
+  const handleCreateParentCategory = async () => {
+    if (!newParentCategory) return alert("상위 카테고리 이름을 입력하세요.");
     try {
-      const createdCategory = await createCategory({
-        name: newCategory,
-        subcategories: newSubcategories,
+      const createdCategory = await createParentCategory({
+        name: newParentCategory,
       });
       setCategories([...categories, createdCategory]);
-      setNewCategory("");
-      setNewSubcategories([]);
+      setNewParentCategory("");
     } catch (error) {
-      alert("카테고리 등록 실패: " + error.message);
+      alert("상위 카테고리 등록 실패: " + error.message);
     }
   };
 
-  // 카테고리 수정
-  const handleUpdateCategory = async (id, updatedData) => {
+  // 하위 카테고리 등록
+  const handleCreateSubCategory = async () => {
+    if (!selectedParentId) return alert("상위 카테고리를 선택하세요.");
+    if (!newSubCategory) return alert("하위 카테고리 이름을 입력하세요.");
     try {
-      const updatedCategory = await updateCategory(id, updatedData);
+      const createdCategory = await createSubCategory({
+        name: newSubCategory,
+        parent: selectedParentId,
+      });
+      // 상위 카테고리 업데이트
       setCategories((prevCategories) =>
         prevCategories.map((category) =>
-          category._id === id ? updatedCategory : category
+          category._id === selectedParentId
+            ? {
+                ...category,
+                children: [...(category.children || []), createdCategory],
+              }
+            : category
         )
       );
-      setEditingCategory(null);
+      setNewSubCategory("");
+      setSelectedParentId("");
     } catch (error) {
-      alert("카테고리 수정 실패: " + error.message);
+      alert("하위 카테고리 등록 실패: " + error.message);
     }
   };
 
@@ -71,65 +81,143 @@ const CategoryManagement = () => {
   };
 
   return (
-    <div>
-      <h2>카테고리 관리</h2>
-      <div>
-        <h3>카테고리 등록</h3>
-        <input
-          type="text"
-          placeholder="카테고리 이름"
-          value={newCategory}
-          onChange={(e) => setNewCategory(e.target.value)}
-        />
-        <input
-          type="text"
-          placeholder="서브카테고리 (쉼표로 구분)"
-          value={newSubcategories.join(",")}
-          onChange={(e) => setNewSubcategories(e.target.value.split(","))}
-        />
-        <button onClick={handleCreateCategory}>등록</button>
+    <div style={{ padding: "20px", maxWidth: "800px", margin: "0 auto" }}>
+      <h2 style={{ textAlign: "center", marginBottom: "20px" }}>
+        카테고리 관리
+      </h2>
+
+      {/* 상위 카테고리 등록 */}
+      <div style={{ marginBottom: "20px" }}>
+        <h3>상위 카테고리 등록</h3>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <input
+            type="text"
+            placeholder="상위 카테고리 이름"
+            value={newParentCategory}
+            onChange={(e) => setNewParentCategory(e.target.value)}
+            style={{
+              flex: 1,
+              padding: "10px",
+              border: "1px solid #ccc",
+              borderRadius: "5px",
+            }}
+          />
+          <button
+            onClick={handleCreateParentCategory}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "#4CAF50",
+              color: "white",
+              border: "none",
+              borderRadius: "5px",
+              cursor: "pointer",
+            }}
+          >
+            등록
+          </button>
+        </div>
       </div>
 
+      {/* 하위 카테고리 등록 */}
+      <div style={{ marginBottom: "20px" }}>
+        <h3>하위 카테고리 등록</h3>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <select
+            value={selectedParentId}
+            onChange={(e) => setSelectedParentId(e.target.value)}
+            style={{
+              flex: 1,
+              padding: "10px",
+              border: "1px solid #ccc",
+              borderRadius: "5px",
+            }}
+          >
+            <option value="" disabled>
+              상위 카테고리 선택
+            </option>
+            {categories.map((category) => (
+              <option key={category._id} value={category._id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+          <input
+            type="text"
+            placeholder="하위 카테고리 이름"
+            value={newSubCategory}
+            onChange={(e) => setNewSubCategory(e.target.value)}
+            style={{
+              flex: 1,
+              padding: "10px",
+              border: "1px solid #ccc",
+              borderRadius: "5px",
+            }}
+          />
+          <button
+            onClick={handleCreateSubCategory}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "#4CAF50",
+              color: "white",
+              border: "none",
+              borderRadius: "5px",
+              cursor: "pointer",
+            }}
+          >
+            등록
+          </button>
+        </div>
+      </div>
+
+      {/* 카테고리 목록 */}
       <div>
         <h3>카테고리 목록</h3>
         {categories.map((category) => (
-          <div key={category._id}>
-            {editingCategory === category._id ? (
-              <div>
-                <input
-                  type="text"
-                  value={category.name}
-                  onChange={(e) =>
-                    handleUpdateCategory(category._id, {
-                      ...category,
-                      name: e.target.value,
-                    })
-                  }
-                />
-                <input
-                  type="text"
-                  value={(category.subcategories || []).join(",")}
-                  onChange={(e) =>
-                    handleUpdateCategory(category._id, {
-                      ...category,
-                      subcategories: e.target.value.split(","),
-                    })
-                  }
-                />
-                <button onClick={() => setEditingCategory(null)}>취소</button>
-              </div>
-            ) : (
-              <div>
-                <strong>{category.name}</strong> -{" "}
-                {(category.subcategories || []).join(", ")}
-                <button onClick={() => setEditingCategory(category._id)}>
-                  수정
-                </button>
-                <button onClick={() => handleDeleteCategory(category._id)}>
-                  삭제
-                </button>
-              </div>
-            )}
+          <div
+            key={category._id}
+            style={{
+              marginBottom: "10px",
+              padding: "10px",
+              border: "1px solid #ccc",
+              borderRadius: "5px",
+            }}
+          >
+            <strong>{category.name}</strong>
+            <button
+              onClick={() => handleDeleteCategory(category._id)}
+              style={{
+                marginLeft: "10px",
+                color: "red",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+              }}
+            >
+              삭제
+            </button>
+            <div style={{ marginLeft: "20px", marginTop: "10px" }}>
+              {category.children && category.children.length > 0 ? (
+                category.children.map((child) => (
+                  <div key={child._id}>
+                    - {child.name}
+                    <button
+                      onClick={() => handleDeleteCategory(child._id)}
+                      style={{
+                        marginLeft: "10px",
+                        color: "red",
+                        border: "none",
+                        background: "transparent",
+                        cursor: "pointer",
+                      }}
+                    >
+                      삭제
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <p>하위 카테고리가 없습니다.</p>
+              )}
+            </div>
           </div>
         ))}
       </div>

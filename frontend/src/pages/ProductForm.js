@@ -1,11 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "../api/axiosInstance"; // axios 인스턴스 사용
+import Select from "react-select"; // react-select 사용
 
 const ProductForm = () => {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     price: "",
+    categories: [], // 다중 선택 가능
+    region: "",
+    tags: "",
     urls: [""],
     image: null, // 이미지 파일 추가
   });
@@ -14,12 +18,58 @@ const ProductForm = () => {
   const [error, setError] = useState(""); // 에러 메시지
   const [previewImage, setPreviewImage] = useState(null); // 이미지 미리보기
 
+  const [categoriesOptions, setCategoriesOptions] = useState([]); // 카테고리 옵션
+  const [regionOptions, setRegionOptions] = useState([]); // 지역 옵션
+
+  // 카테고리 및 지역 목록 가져오기
+  useEffect(() => {
+    const fetchOptions = async () => {
+      try {
+        const categoriesResponse = await axios.get("/categories");
+        const regionsResponse = await axios.get("/regions");
+
+        setCategoriesOptions(
+          categoriesResponse.data.map((category) => ({
+            value: category._id,
+            label: category.name,
+          }))
+        );
+
+        setRegionOptions(
+          regionsResponse.data.map((region) => ({
+            value: region._id,
+            label: `${region.country} - ${region.city}`,
+          }))
+        );
+      } catch (error) {
+        console.error("옵션 데이터 로드 실패:", error.message);
+      }
+    };
+    fetchOptions();
+  }, []);
+
   // 입력 필드 변경 핸들러
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prevData) => ({
       ...prevData,
       [name]: value,
+    }));
+  };
+
+  // 카테고리 선택 핸들러
+  const handleCategoryChange = (selectedOptions) => {
+    setFormData((prevData) => ({
+      ...prevData,
+      categories: selectedOptions.map((option) => option.value),
+    }));
+  };
+
+  // 지역 선택 핸들러
+  const handleRegionChange = (selectedOption) => {
+    setFormData((prevData) => ({
+      ...prevData,
+      region: selectedOption ? selectedOption.value : "",
     }));
   };
 
@@ -66,16 +116,24 @@ const ProductForm = () => {
     setMessage(""); // 이전 메시지 초기화
     setError(""); // 이전 에러 초기화
 
-    const productData = new FormData(); // FormData 객체 생성
-    productData.append("name", formData.name);
-    productData.append("description", formData.description);
-    if (formData.price) productData.append("price", formData.price); // 비어 있는 가격은 추가하지 않음
-    if (formData.image) productData.append("image", formData.image); // 이미지 파일 추가
-    formData.urls.forEach((url, index) => {
-      productData.append(`urls[${index}]`, url); // URL 배열 추가
-    });
-
     try {
+      const productData = new FormData(); // FormData 객체 생성
+      Object.entries(formData).forEach(([key, value]) => {
+        if (key === "urls") {
+          value.forEach((url, index) => {
+            productData.append(`urls[${index}]`, url);
+          });
+        } else if (key === "categories") {
+          value.forEach((category) => {
+            productData.append("categories[]", category);
+          });
+        } else if (key === "image" && value) {
+          productData.append(key, value); // 이미지 파일 추가
+        } else {
+          productData.append(key, value);
+        }
+      });
+
       const response = await axios.post("/products", productData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
@@ -85,6 +143,9 @@ const ProductForm = () => {
         name: "",
         description: "",
         price: "",
+        categories: [],
+        region: "",
+        tags: "",
         urls: [""],
         image: null,
       }); // 폼 초기화
@@ -168,6 +229,62 @@ const ProductForm = () => {
           </label>
         </div>
 
+        {/* 카테고리 선택 */}
+        <div style={{ marginBottom: "15px" }}>
+          <label>카테고리:</label>
+          <Select
+            isMulti
+            options={categoriesOptions}
+            onChange={handleCategoryChange}
+            placeholder="카테고리를 선택하세요"
+            styles={{
+              control: (base) => ({
+                ...base,
+                borderRadius: "5px",
+                padding: "5px",
+              }),
+            }}
+          />
+        </div>
+
+        {/* 지역 선택 */}
+        <div style={{ marginBottom: "15px" }}>
+          <label>지역:</label>
+          <Select
+            options={regionOptions}
+            onChange={handleRegionChange}
+            placeholder="지역을 선택하세요"
+            styles={{
+              control: (base) => ({
+                ...base,
+                borderRadius: "5px",
+                padding: "5px",
+              }),
+            }}
+          />
+        </div>
+
+        {/* 상품 태그 */}
+        <div style={{ marginBottom: "15px" }}>
+          <label>
+            태그 (쉼표로 구분):
+            <input
+              type="text"
+              name="tags"
+              value={formData.tags}
+              onChange={handleChange}
+              style={{
+                display: "block",
+                width: "100%",
+                padding: "10px",
+                marginTop: "5px",
+                border: "1px solid #ccc",
+                borderRadius: "5px",
+              }}
+            />
+          </label>
+        </div>
+
         {/* 상품 이미지 */}
         <div style={{ marginBottom: "15px" }}>
           <label>
@@ -183,7 +300,6 @@ const ProductForm = () => {
               }}
             />
           </label>
-          {/* 이미지 미리보기 */}
           {previewImage && (
             <div style={{ marginTop: "10px", textAlign: "center" }}>
               <img
@@ -200,7 +316,7 @@ const ProductForm = () => {
           )}
         </div>
 
-        {/* 상품 URL */}
+        {/* URL 추가 */}
         <div style={{ marginBottom: "15px" }}>
           <label>상품 URL:</label>
           {formData.urls.map((url, index) => (
@@ -257,7 +373,6 @@ const ProductForm = () => {
           </button>
         </div>
 
-        {/* 제출 버튼 */}
         <button
           type="submit"
           style={{

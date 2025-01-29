@@ -2,54 +2,48 @@ const express = require("express");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-const Product = require("../models/Product"); // Product 모델 불러오기
+const Product = require("../models/Product"); // Product 모델 가져오기
 
 const router = express.Router();
 
 // 서버 시작 시 uploads 폴더 확인 및 생성
 if (!fs.existsSync("uploads")) {
-  fs.mkdirSync("uploads"); // 폴더가 없으면 생성
+  fs.mkdirSync("uploads");
 }
 
-// Multer 설정 - 이미지 업로드 처리
+// Multer 설정
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/"); // 업로드된 파일 저장 경로
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`); // 고유 파일 이름 생성
-  },
+  destination: (req, file, cb) => cb(null, "uploads/"),
+  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`),
 });
 
-// Multer 미들웨어 설정
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    const fileTypes = /jpeg|jpg|png|gif/; // 허용된 파일 형식
-    const extName = fileTypes.test(
-      path.extname(file.originalname).toLowerCase()
-    );
-    const mimeType = fileTypes.test(file.mimetype);
-
-    if (extName && mimeType) {
-      cb(null, true);
-    } else {
-      cb(new Error("이미지 파일만 업로드 가능합니다.")); // 파일 형식 오류 처리
-    }
+    const fileTypes = /jpeg|jpg|png|gif/;
+    const isValidType =
+      fileTypes.test(path.extname(file.originalname).toLowerCase()) &&
+      fileTypes.test(file.mimetype);
+    if (isValidType) cb(null, true);
+    else cb(new Error("이미지 파일만 업로드 가능합니다."));
   },
-  limits: { fileSize: 5 * 1024 * 1024 }, // 파일 크기 제한: 5MB
+  limits: { fileSize: 5 * 1024 * 1024 },
 });
 
 // 상품 등록
 router.post("/", upload.single("image"), async (req, res) => {
   try {
-    const { name, description, price } = req.body;
+    const { name, description, price, category, region, tags } = req.body;
+
+    if (!name || !description || !price || !category || !region) {
+      return res.status(400).json({ message: "모든 필드를 입력하세요." });
+    }
 
     const urlsArray = Array.isArray(req.body.urls)
       ? req.body.urls
       : (() => {
           try {
-            return JSON.parse(req.body.urls || "[]"); // 문자열로 받은 경우 JSON으로 변환
+            return JSON.parse(req.body.urls || "[]");
           } catch {
             return [];
           }
@@ -60,14 +54,18 @@ router.post("/", upload.single("image"), async (req, res) => {
     const product = new Product({
       name,
       description,
-      price: price || null,
+      price,
+      category,
+      region,
+      tags: tags ? tags.split(",") : [], // 태그를 배열로 저장
       urls: urlsArray,
       image: imageUrl,
     });
 
     await product.save();
-    res.status(201).json({ message: "상품 등록 성공", product, imageUrl });
+    res.status(201).json({ message: "상품 등록 성공", product });
   } catch (error) {
+    console.error("상품 등록 실패:", error.message);
     res.status(500).json({ message: "상품 등록 실패", error: error.message });
   }
 });
@@ -76,9 +74,6 @@ router.post("/", upload.single("image"), async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const products = await Product.find({ isDeleted: false });
-    if (products.length === 0) {
-      return res.status(404).json({ message: "상품이 없습니다." });
-    }
     res.status(200).json(products);
   } catch (error) {
     res
@@ -87,7 +82,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// 상품 상태 업데이트 (판매중지/판매재개)
+// 상품 상태 업데이트
 router.put("/status/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -118,7 +113,6 @@ router.put("/status/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-
     const product = await Product.findByIdAndUpdate(
       id,
       { isDeleted: true },
@@ -129,7 +123,7 @@ router.delete("/:id", async (req, res) => {
       return res.status(404).json({ message: "상품을 찾을 수 없습니다." });
     }
 
-    res.status(200).json({ message: "상품이 삭제되었습니다.", product });
+    res.status(200).json({ message: "상품 삭제 완료", product });
   } catch (error) {
     res.status(500).json({ message: "상품 삭제 실패", error: error.message });
   }
@@ -139,7 +133,11 @@ router.delete("/:id", async (req, res) => {
 router.put("/:id", upload.single("image"), async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, price } = req.body;
+    const { name, description, price, category, region, tags } = req.body;
+
+    if (!name || !description || !price || !category || !region) {
+      return res.status(400).json({ message: "모든 필드를 입력하세요." });
+    }
 
     const urlsArray = Array.isArray(req.body.urls)
       ? req.body.urls
@@ -156,7 +154,10 @@ router.put("/:id", upload.single("image"), async (req, res) => {
     const updatedData = {
       name,
       description,
-      price: price || null,
+      price,
+      category,
+      region,
+      tags: tags ? tags.split(",") : [],
       urls: urlsArray,
     };
 
@@ -178,19 +179,5 @@ router.put("/:id", upload.single("image"), async (req, res) => {
     res.status(500).json({ message: "상품 수정 실패", error: error.message });
   }
 });
-
-// Multer 에러 핸들러
-const multerErrorHandler = (err, req, res, next) => {
-  if (err instanceof multer.MulterError) {
-    return res
-      .status(400)
-      .json({ message: "파일 업로드 오류", error: err.message });
-  } else if (err) {
-    return res.status(500).json({ message: "서버 오류", error: err.message });
-  }
-  next();
-};
-
-router.use(multerErrorHandler); // Multer 에러 핸들러 추가
 
 module.exports = router;

@@ -22,6 +22,18 @@ const productSchema = new mongoose.Schema({
     type: String,
     default: null, // 상품 이미지 경로 (이미지가 없을 경우 null)
   },
+  category: {
+    type: String,
+    required: true, // 카테고리 필수 입력 값
+  },
+  region: {
+    type: String,
+    required: true, // 지역 필수 입력 값
+  },
+  tags: {
+    type: [String],
+    default: [], // 태그 배열
+  },
   isVisible: {
     type: Boolean,
     default: true, // 판매 상태 필드 추가 (기본값: true)

@@ -27,6 +27,7 @@ app.use(
   })
 );
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // URL 인코딩된 데이터 파싱
 
 // MongoDB Atlas 연결
 mongoose
@@ -67,8 +68,10 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+// Static 파일 제공
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+// 이미지 업로드 라우트
 app.post("/api/upload", upload.single("image"), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: "이미지 업로드 실패" });
@@ -76,15 +79,23 @@ app.post("/api/upload", upload.single("image"), (req, res) => {
   res.status(200).json({ imageUrl: `/uploads/${req.file.filename}` });
 });
 
-// 기본 라우트 설정
+// API 라우트 설정
 app.use("/api/productApi", productRoutes);
 app.use("/api/regionApi", regionRoutes);
 app.use("/api/categoryApi", categoryRoutes);
 
-app.use((req, res) => {
+// 404 에러 핸들링
+app.use((req, res, next) => {
   res.status(404).json({ message: "요청하신 API를 찾을 수 없습니다." });
 });
 
+// 전역 에러 핸들러
+app.use((err, req, res, next) => {
+  console.error("🚨 에러 발생:", err.stack);
+  res.status(500).json({ message: "서버 내부 오류", error: err.message });
+});
+
+// 서버 시작
 app.listen(PORT, () => {
   console.log(`🚀 서버가 http://localhost:${PORT} 에서 실행 중입니다.`);
 });
